@@ -1,0 +1,201 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// All money columns are integers in the currency's minor unit (paise, cents)
+// so that splits and balances never suffer from floating point drift.
+
+model User {
+  id                  String             @id @default(uuid())
+  googleId            String?            @unique
+  email               String             @unique
+  name                String?
+  status              UserStatus         @default(INVITED)
+  timezone            String             @default("UTC")
+  defaultCurrency     String             @default("INR")
+  createdAt           DateTime           @default(now())
+  expenses            Expense[]          @relation("Payer")
+  splits              ExpenseSplit[]
+  receivedFriendships Friendship[]       @relation("Addressee")
+  sentFriendships     Friendship[]       @relation("Requester")
+  createdGroups       Group[]
+  groupMemberships    GroupMember[]
+  paymentsMade        Settlement[]       @relation("SettlementPayer")
+  paymentsReceived    Settlement[]       @relation("SettlementPayee")
+  paymentsRecorded    Settlement[]       @relation("SettlementRecorder")
+  budgets             Budget[]
+  recurringExpenses   RecurringExpense[]
+}
+
+model Friendship {
+  id          String           @id @default(uuid())
+  requesterId String
+  addresseeId String
+  status      FriendshipStatus @default(ACCEPTED)
+  createdAt   DateTime         @default(now())
+  addressee   User             @relation("Addressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+  requester   User             @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId])
+}
+
+model Group {
+  id                String             @id @default(uuid())
+  name              String
+  createdById       String
+  createdAt         DateTime           @default(now())
+  expenses          Expense[]
+  createdBy         User               @relation(fields: [createdById], references: [id])
+  members           GroupMember[]
+  settlements       Settlement[]
+  recurringExpenses RecurringExpense[]
+}
+
+model GroupMember {
+  groupId String
+  userId  String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId])
+}
+
+model Expense {
+  id                 String            @id @default(uuid())
+  amount             Int
+  currency           String            @default("INR")
+  category           String
+  description        String?
+  date               DateTime
+  splitType          SplitType         @default(EQUAL)
+  payerId            String
+  groupId            String?
+  recurringExpenseId String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  group              Group?            @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  payer              User              @relation("Payer", fields: [payerId], references: [id])
+  recurringExpense   RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+  splits             ExpenseSplit[]
+
+  @@index([payerId, date])
+  @@index([groupId])
+  @@index([category])
+}
+
+// One row per participant, including the payer's own share.
+model ExpenseSplit {
+  id        String   @id @default(uuid())
+  expenseId String
+  userId    String
+  amount    Int
+  createdAt DateTime @default(now())
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([expenseId, userId])
+  @@index([userId])
+}
+
+// A payment of real money from payer (who owed) to payee (who was owed).
+model Settlement {
+  id           String           @id @default(uuid())
+  payerId      String
+  payeeId      String
+  amount       Int
+  currency     String           @default("INR")
+  groupId      String?
+  note         String?
+  status       SettlementStatus @default(PENDING)
+  recordedById String
+  confirmedAt  DateTime?
+  createdAt    DateTime         @default(now())
+  payer        User             @relation("SettlementPayer", fields: [payerId], references: [id])
+  payee        User             @relation("SettlementPayee", fields: [payeeId], references: [id])
+  recordedBy   User             @relation("SettlementRecorder", fields: [recordedById], references: [id])
+  group        Group?           @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  @@index([payerId])
+  @@index([payeeId])
+}
+
+model Budget {
+  id        String       @id @default(uuid())
+  userId    String
+  // "*" means an overall budget across every category.
+  category  String
+  amount    Int
+  currency  String       @default("INR")
+  period    BudgetPeriod @default(MONTHLY)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category, period, currency])
+}
+
+model RecurringExpense {
+  id                 String     @id @default(uuid())
+  ownerId            String
+  amount             Int
+  currency           String     @default("INR")
+  category           String
+  description        String?
+  frequency          Frequency
+  startDate          DateTime
+  endDate            DateTime?
+  nextDate           DateTime
+  occurrencesCreated Int        @default(0)
+  groupId            String?
+  splitWith          String[]
+  active             Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  owner              User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  group              Group?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  expenses           Expense[]
+
+  @@index([ownerId, active, nextDate])
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+enum SplitType {
+  EQUAL
+  EXACT
+  PERCENTAGE
+  SHARES
+  ITEMIZED
+}
+
+enum SettlementStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum BudgetPeriod {
+  WEEKLY
+  MONTHLY
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}

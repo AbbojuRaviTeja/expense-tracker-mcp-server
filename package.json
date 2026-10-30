@@ -1,0 +1,60 @@
+{
+  "name": "expense-tracker-mcp-server",
+  "version": "2.0.0",
+  "description": "Splitwise-style expense tracker and bill splitter exposed as an MCP server for AI assistants",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "start:migrate": "prisma migrate deploy && node dist/main.js",
+    "dev": "tsx watch main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:watch": "vitest",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:generate": "prisma generate"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "expense-tracker",
+    "splitwise",
+    "fastmcp",
+    "prisma"
+  ],
+  "author": "Abboju Ravi Teja (https://github.com/AbbojuRaviTeja)",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AbbojuRaviTeja/expense-tracker-mcp-server.git"
+  },
+  "homepage": "https://github.com/AbbojuRaviTeja/expense-tracker-mcp-server#readme",
+  "bugs": {
+    "url": "https://github.com/AbbojuRaviTeja/expense-tracker-mcp-server/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.6.0",
+    "@prisma/client": "^7.6.0",
+    "dotenv": "^17.4.0",
+    "fastmcp": "^3.35.0",
+    "jose": "^6.2.2",
+    "pg": "^8.20.0",
+    "prisma": "^7.6.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "@types/pg": "^8.20.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
+  }
+}
